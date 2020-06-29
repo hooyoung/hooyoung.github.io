@@ -11,7 +11,6 @@ body { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; backg
 #scoreboard { position: absolute; font-size: xx-large; display: inline; top: 50; right: 50; color: cyan; }
 #field { position: absolute; font-size: 40pt; }
 </style>
-<script type="text/javascript" src="jquery-1.4.4.min.js"></script>
 <script type="text/javascript">
 
 score = 0;
@@ -20,22 +19,25 @@ ht = wd = 100;
 items = {};
 frees = [];
 ymax = 100;
-ymin = 0;
 duration = 5000; // ms
 
 function updateboard() {
   if (failures < 10) {
     s = "Score: " + score + " Missed: " + failures;
-    $("#scoreboard").text(s);
+    document.getElementById("scoreboard").innerText = s;
   }
   else if (failures == 10) {
-    $("#scoreboard").text("GAME OVER - " + score);
+    document.getElementById("scoreboard").innerText = "GAME OVER - " + score;
   }
 }
 
 function failure(answer) {
   if (answer in items) {
-    item = items[answer].css({display: "none"});
+    var item = items[answer];
+    var anim = item[1];
+    anim.cancel();
+    item = item[0];
+    item.style.display = "none";
     delete items[answer];
     frees.push(item);
   
@@ -43,7 +45,7 @@ function failure(answer) {
     if (failures >= 10) {
       for (var answer in items) {
         if (items.hasOwnProperty(answer)) {
-          items[answer].stop(true);
+          items[answer][1].pause();
         }
       }
       items = [];
@@ -83,7 +85,7 @@ function generate() {
       if (a < b) {
         a += b;
         b = a - b;
-	a -= b;
+        a -= b;
       }
       question = a + "-" + b;
       answer = String(a-b);
@@ -91,46 +93,58 @@ function generate() {
 
   } while (answer in items);
 
-  var item = frees.pop().html(question).css({display: "inline"});
-  var left = Math.floor(Math.random() * (wd-item.width()));
-  items[answer] = item;
-  item.css({left: left, top: 0});
-  item.animate({top: ymax}, duration, "linear", function() { failure(answer); });
+  var item = frees.pop();
+  item.innerHTML = question;
+  item.style.display = "inline";
+
+  var left = Math.floor(Math.random() * (wd-item.offsetWidth));
+  item.style.left = left;
+  item.style.top = 0;
+
+  var animation = item.animate([{transform:'translateY(0)'}, {transform: 'translateY(' + ymax + 'px)'}], {duration: duration});
+  animation.onfinish = function() { failure(answer); };
+  items[answer] = [item,animation];
 }
 
 function handleinput(event) {
   if (event.which == 13 || event.which == 32) {
-    answer = $("#field").val();
+    var answer = document.getElementById("field").value;
     if (answer in items) {
       score += answer.length * 5;
       updateboard();
       var item = items[answer];
+      var anim = item[1];
+      anim.cancel();
       delete items[answer];
-      item.stop().css({display: "none"});
-      frees.push(item);
+      frees.push(item[0]);
       duration = Math.ceil(duration*.98);
     }
     generate();
 
-    $("#field").val("");
+    document.getElementById("field").value = "";
     event.preventDefault();
   }
 }
 
-$(function() {
-  ht = $("body").height();
-  wd = $("body").width();
+window.addEventListener("DOMContentLoaded", (event) => {
+  ht = document.body.offsetHeight;
+  wd = document.body.offsetWidth;
 
-  var field = $("#field");
-  ymax = ht - field.height();
-  field.css({top: ymax, left: 0, width: wd});
-  ymin = $("#scoreboard").position().top + $("#scoreboard").height();
+  ymax = ht - document.getElementById("field").offsetHeight;
+  document.getElementById("field").style.top = ymax;
+  document.getElementById("field").style.left = 0;
+  document.getElementById("field").style.width = wd;
 
   for (var i = 0; i < 30; ++i) {
-    frees.push($('<span class="item"></span>').appendTo("body"));
+    var elt = document.createElement("span");
+    elt.classList.add("item");
+    document.body.appendChild(elt);
+    frees.push(elt);
   }
 
-  field.val("").focus().keypress(handleinput);
+  document.getElementById("field").value = "";
+  document.getElementById("field").focus();
+  document.getElementById("field").addEventListener("keypress", handleinput);
 
   generate();
   updateboard();
